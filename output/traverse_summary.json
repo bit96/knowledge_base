@@ -1,0 +1,32 @@
+{
+  "traverse_info": {
+    "start_time": "2025-08-11 10:41:51",
+    "end_time": "2025-08-11 10:43:23",
+    "total_duration_seconds": 91.15,
+    "total_duration_formatted": "1分31.2秒",
+    "average_delay_seconds": 0
+  },
+  "statistics": {
+    "total_items_found": 0,
+    "successful_access": 0,
+    "permission_denied": 0,
+    "access_failed": 0,
+    "success_rate": 0.0
+  },
+  "output_files": {
+    "csv_log": "directory_traverse_log.csv",
+    "permission_log": null,
+    "failed_log": null,
+    "summary": "traverse_summary.json",
+    "main_log": "traverser.log"
+  },
+  "access_control": {
+    "delay_range_seconds": [
+      2,
+      5
+    ],
+    "total_delays": 0,
+    "respect_permissions": true,
+    "retry_mechanism": true
+  }
+}
