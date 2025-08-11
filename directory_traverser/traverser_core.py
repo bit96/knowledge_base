@@ -14,12 +14,13 @@ from .discovery import DiscoveryMixin
 from .navigation import NavigationMixin
 from .extraction import ExtractionMixin
 from .reporting import ReportingMixin
+from .resume_handler import ResumeHandlerMixin
 
 
-class FeishuDirectoryTraverser(InitializationMixin, DiscoveryMixin, NavigationMixin, ExtractionMixin, ReportingMixin):
+class FeishuDirectoryTraverser(InitializationMixin, DiscoveryMixin, NavigationMixin, ExtractionMixin, ReportingMixin, ResumeHandlerMixin):
     """飞书知识库目录遍历器主类"""
     
-    def __init__(self, output_dir: str = "/Users/abc/PycharmProjects/knowledge_base/output"):
+    def __init__(self, output_dir: str = "/Users/abc/PycharmProjects/knowledge/output"):
         self.output_dir = output_dir
         self.driver = None
         self.wait = None

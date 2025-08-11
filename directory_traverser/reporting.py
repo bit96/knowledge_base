@@ -103,6 +103,27 @@ class ReportingMixin:
         except Exception as e:
             self.logger.warning(f"实时保存CSV记录失败: {e}")
     
+    def clear_csv_file(self):
+        """清空CSV文件，准备重新开始"""
+        csv_file = os.path.join(self.output_dir, "directory_traverse_log.csv")
+        
+        try:
+            # 创建带标题行的新文件
+            with open(csv_file, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    '序号', '目录项名称', 'URL', 
+                    '访问时间', '响应时间(秒)', '状态'
+                ])
+            
+            self.logger.info("✅ 已清空CSV文件，准备重新开始")
+            
+            # 同时清空内存中的访问日志
+            self.access_log = []
+            
+        except Exception as e:
+            self.logger.error(f"清空CSV文件失败: {e}")
+    
     def save_permission_log(self):
         """保存权限不足的项目日志"""
         if not self.permission_denied_items:

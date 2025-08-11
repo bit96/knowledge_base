@@ -643,7 +643,7 @@ class FeishuDirectoryTraverser:
     def find_element_by_text(self, text: str):
         """根据文本内容重新查找元素"""
         try:
-            xpath = f"//*[@class='workspace-tree-view-node-content' and text()='{text}']"
+            xpath = f"//*[contains(@class, 'workspace-tree-view-node-content') and normalize-space(text())='{text}']"
             elements = self.driver.find_elements(By.XPATH, xpath)
             
             for element in elements:

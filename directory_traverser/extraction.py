@@ -119,12 +119,27 @@ class ExtractionMixin:
         except Exception as e:
             self.logger.error(f"页面诊断失败: {e}")
     
-    def recursive_traverse_directory(self, level: int = 0, visited_texts: set = None, path: list = None):
+    def recursive_traverse_directory(self, level: int = 0, visited_texts: set = None, path: list = None, resume_mode: bool = False):
         """递归遍历多层级目录结构"""
         if visited_texts is None:
             visited_texts = set()
         if path is None:
             path = []
+        
+        # 检查是否启用断点续传
+        if level == 0 and not resume_mode:
+            resume_progress = self.check_resume_progress()
+            if resume_progress:
+                resume_path, resume_name = resume_progress
+                self.logger.info(f"🔄 检测到上次中断位置: {resume_path} - {resume_name}")
+                
+                response = input(f"是否从 '{resume_name}' 位置继续？(y/n): ").strip().lower()
+                if response == 'y' or response == 'yes':
+                    return self.start_from_resume_position(resume_path, resume_name)
+                else:
+                    self.logger.info("📝 选择重新开始，将清空现有进度")
+                    # 清空CSV文件，重新开始
+                    self.clear_csv_file()
         
         max_depth = 10  # 防止无限递归
         if level > max_depth:
@@ -191,7 +206,7 @@ class ExtractionMixin:
                     current_url = self.driver.current_url
                     current_title = self.driver.title
                     
-                    # 提取并记录页面信息
+                    # 【第一步：先记录父目录】
                     page_info = self.extract_page_info()
                     if page_info:
                         page_info['directory_item'] = item_name
@@ -204,20 +219,22 @@ class ExtractionMixin:
                         # 立即保存到CSV文件
                         self.save_single_record_to_csv(page_info)
                         
-                        self.logger.info(f"{indent}✅ 成功记录: {current_title[:50]}...")
+                        self.logger.info(f"{indent}✅ 成功记录父项: {current_title[:50]}...")
                     
-                    # 立即检查当前点击项是否展开了子目录
+                    # 【第二步：检查并处理子目录】
                     time.sleep(1)
                     items_after_click = self.find_sidebar_items_fresh()
                     
                     # 如果点击后出现新项目，说明当前项有子目录
                     if len(items_after_click) > len(current_items):
                         self.logger.info(f"{indent}🔍 发现 {item_name} 的子目录，开始递归...")
+                        
                         # 递归处理子目录，父路径是current_path
-                        self.recursive_traverse_directory(level + 1, visited_texts, current_path)
+                        self.recursive_traverse_directory(level + 1, visited_texts, current_path, resume_mode=True)
                         
                         # 递归返回后重新获取DOM状态（子目录可能已收起）
                         current_items = self.find_sidebar_items_fresh()
+                        self.logger.info(f"{indent}🔄 完成 {item_name} 子目录处理，继续同级遍历...")
                     
                 except Exception as e:
                     self.logger.error(f"{indent}❌ 处理项目 '{item_name}' 时出错: {e}")
