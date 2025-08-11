@@ -45,113 +45,185 @@ class ResumeHandlerMixin:
             self.logger.error(f"读取进度文件失败: {e}")
             return None
     
-    def navigate_to_resume_position(self, target_path: str, target_name: str) -> bool:
-        """导航到指定的断点续传位置"""
-        self.logger.info(f"🎯 导航到断点续传位置: {target_path} - {target_name}")
+    def build_path_name_mapping(self) -> dict:
+        """从CSV文件构建路径-名称映射表"""
+        csv_file = os.path.join(self.output_dir, "directory_traverse_log.csv")
+        path_mapping = {}
         
         try:
-            # 解析路径 (如: "1-10" -> [1, 10])
-            path_parts = [int(x) for x in target_path.split('-')]
-            
-            # 逐级导航到目标位置
-            current_path = []
-            for level, target_index in enumerate(path_parts):
-                current_path.append(target_index)
-                current_path_str = '-'.join(map(str, current_path))
+            with open(csv_file, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                next(reader)  # 跳过标题行
                 
-                self.logger.info(f"  📍 导航到第 {level + 1} 层，位置 {current_path_str}")
-                
-                # 获取当前层级的所有项目
-                current_items = self.find_sidebar_items_fresh()
-                if not current_items:
-                    self.logger.error(f"❌ 第 {level + 1} 层未找到任何项目")
-                    return False
-                
-                # 检查目标索引是否超出范围
-                if target_index > len(current_items):
-                    self.logger.error(f"❌ 目标索引 {target_index} 超出范围，当前层只有 {len(current_items)} 个项目")
-                    return False
-                
-                # 获取目标项目 (索引从1开始，所以-1)
-                target_item = current_items[target_index - 1]
-                item_name = target_item['name']
-                
-                self.logger.info(f"  🎯 找到目标项目: {item_name}")
-                
-                # 如果是最后一层，验证名称是否匹配
-                if level == len(path_parts) - 1:
-                    if item_name != target_name:
-                        self.logger.warning(f"⚠️ 项目名称不匹配！期望: {target_name}, 实际: {item_name}")
-                        self.logger.info("这可能是由于页面结构发生了变化")
-                        return False
-                    
-                    self.logger.info(f"✅ 成功定位到断点续传位置: {item_name}")
-                    return True
-                
-                # 如果不是最后一层，需要点击展开子项目
-                fresh_element = self.find_element_by_text(item_name)
-                if not fresh_element:
-                    self.logger.error(f"❌ 无法找到元素: {item_name}")
-                    return False
-                
-                # 点击元素展开子项目
-                click_success = self.click_element_safe(fresh_element, item_name)
-                if not click_success:
-                    self.logger.error(f"❌ 点击失败: {item_name}")
-                    return False
-                
-                # 等待子项目加载
-                time.sleep(2)
-                self.logger.info(f"  ✅ 成功展开: {item_name}")
-            
-            return True
+                for row in reader:
+                    if len(row) >= 2:
+                        path = row[0].strip()
+                        name = row[1].strip()
+                        if path and name:
+                            path_mapping[path] = name
+                            
+            self.logger.info(f"📋 构建路径映射表: {len(path_mapping)} 个路径")
+            return path_mapping
             
         except Exception as e:
-            self.logger.error(f"导航到断点续传位置失败: {e}")
+            self.logger.error(f"构建路径映射表失败: {e}")
+            return {}
+    
+    def get_navigation_path(self, target_path: str, path_mapping: dict) -> list:
+        """获取导航名称路径"""
+        try:
+            # 解析路径层级: "1-2-2" -> ["1", "1-2", "1-2-2"]
+            path_parts = target_path.split('-')
+            navigation_path = []
+            
+            for i in range(len(path_parts)):
+                current_path = '-'.join(path_parts[:i+1])
+                if current_path in path_mapping:
+                    navigation_path.append(path_mapping[current_path])
+                else:
+                    self.logger.warning(f"⚠️ 路径 {current_path} 在映射表中不存在")
+                    return []
+            
+            return navigation_path
+            
+        except Exception as e:
+            self.logger.error(f"解析导航路径失败: {e}")
+            return []
+    
+    def find_item_by_name(self, target_name: str):
+        """在当前层级通过名称查找项目"""
+        try:
+            current_items = self.find_sidebar_items_fresh()
+            
+            for item in current_items:
+                if item['name'] == target_name:
+                    self.logger.debug(f"  ✅ 找到目标项目: {target_name}")
+                    return item
+            
+            self.logger.debug(f"  ❌ 未找到目标项目: {target_name}")
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"按名称查找项目失败: {e}")
+            return None
+    
+    def navigate_to_resume_position(self, target_path: str, target_name: str) -> bool:
+        """导航到指定的断点续传位置 - 基于路径-名称映射"""
+        self.logger.info(f"🎯 开始路径-名称映射导航")
+        self.logger.info(f"📋 目标路径: {target_path} → {target_name}")
+        
+        try:
+            # 步骤1: 构建路径-名称映射表
+            path_mapping = self.build_path_name_mapping()
+            if not path_mapping:
+                self.logger.error("❌ 无法构建路径映射表")
+                return False
+            
+            # 步骤2: 获取导航名称路径
+            navigation_path = self.get_navigation_path(target_path, path_mapping)
+            if not navigation_path:
+                self.logger.error("❌ 无法解析导航路径")
+                return False
+            
+            self.logger.info(f"📍 导航路径: {navigation_path}")
+            
+            # 步骤3: 逐级名称导航
+            for level, level_target_name in enumerate(navigation_path[:-1]):
+                self.logger.info(f"第{level + 1}层导航:")
+                self.logger.info(f"🔍 查找目标: {level_target_name}")
+                
+                # 在当前层级查找目标项目
+                target_item = self.find_item_by_name(level_target_name)
+                if not target_item:
+                    self.logger.error(f"❌ 第{level + 1}层未找到目标: {level_target_name}")
+                    return False
+                
+                self.logger.info(f"✅ 找到并准备点击: {level_target_name}")
+                
+                # 找到对应的DOM元素并点击
+                fresh_element = self.find_element_by_text(level_target_name)
+                if not fresh_element:
+                    self.logger.error(f"❌ 无法找到DOM元素: {level_target_name}")
+                    return False
+                
+                # 点击展开下一层
+                click_success = self.click_element_safe(fresh_element, level_target_name)
+                if not click_success:
+                    self.logger.error(f"❌ 点击失败: {level_target_name}")
+                    return False
+                
+                # 等待下一层加载
+                time.sleep(2)
+                self.logger.info(f"✅ 成功展开: {level_target_name}")
+            
+            # 步骤4: 验证最终目标
+            final_target = navigation_path[-1]
+            self.logger.info(f"第{len(navigation_path)}层验证:")
+            self.logger.info(f"🔍 查找目标: {final_target}")
+            
+            final_item = self.find_item_by_name(final_target)
+            if final_item and final_item['name'] == target_name:
+                self.logger.info(f"✅ 成功定位到断点续传位置: {target_name}")
+                return True
+            else:
+                self.logger.error(f"❌ 最终验证失败，期望: {target_name}, 实际: {final_item['name'] if final_item else 'None'}")
+                return False
+            
+        except Exception as e:
+            self.logger.error(f"路径-名称映射导航失败: {e}")
             return False
     
-    def calculate_next_position(self, current_path: str, current_name: str) -> Tuple[List[int], int]:
-        """计算下一个要处理的位置"""
+    def calculate_next_position(self, current_path: str, current_name: str) -> str:
+        """简化的下一个序号计算"""
         try:
-            # 解析当前路径
-            path_parts = [int(x) for x in current_path.split('-')]
-            
-            # 首先检查当前项目是否有子项目需要处理
             self.logger.info(f"🔍 检查 {current_name} 是否有子项目...")
             
-            # 点击当前项目，看是否会展开子项目
-            fresh_element = self.find_element_by_text(current_name)
-            if fresh_element:
-                # 记录点击前的项目数量
-                items_before = self.find_sidebar_items_fresh()
-                count_before = len(items_before)
-                
-                # 点击元素
-                click_success = self.click_element_safe(fresh_element, current_name)
-                if click_success:
-                    time.sleep(2)  # 等待可能的子项目加载
-                    
-                    # 检查点击后的项目数量
-                    items_after = self.find_sidebar_items_fresh()
-                    count_after = len(items_after)
-                    
-                    if count_after > count_before:
-                        self.logger.info(f"✅ 发现 {current_name} 有子项目，下一个位置: {current_path}-1")
-                        return (path_parts + [1], 1)  # 进入子项目的第1个
+            # 检查当前项目是否有子项目
+            if self.has_children(current_name):
+                next_path = f"{current_path}-1"
+                self.logger.info(f"✅ 发现 {current_name} 有子项目，下一个位置: {next_path}")
+                return next_path
             
             # 如果没有子项目，继续同级的下一个
-            path_parts[-1] += 1  # 最后一级索引+1
-            next_index = path_parts[-1]
+            path_parts = current_path.split('-')
+            path_parts[-1] = str(int(path_parts[-1]) + 1)  # 最后一级+1
+            next_path = '-'.join(path_parts)
             
-            self.logger.info(f"📍 下一个同级位置: {'-'.join(map(str, path_parts))}")
-            return (path_parts, next_index)
+            self.logger.info(f"📍 下一个同级位置: {next_path}")
+            return next_path
             
         except Exception as e:
             self.logger.error(f"计算下一个位置失败: {e}")
             # 默认返回下一个同级位置
-            path_parts = [int(x) for x in current_path.split('-')]
-            path_parts[-1] += 1
-            return (path_parts, path_parts[-1])
+            path_parts = current_path.split('-')
+            path_parts[-1] = str(int(path_parts[-1]) + 1)
+            return '-'.join(path_parts)
+    
+    def has_children(self, item_name: str) -> bool:
+        """简单检查项目是否有子项目"""
+        try:
+            # 记录当前DOM状态
+            items_before = self.find_sidebar_items_fresh()
+            count_before = len(items_before)
+            
+            # 点击项目
+            fresh_element = self.find_element_by_text(item_name)
+            if fresh_element:
+                click_success = self.click_element_safe(fresh_element, item_name)
+                if click_success:
+                    time.sleep(1)  # 等待可能的子项目加载
+                    
+                    # 检查是否有新项目出现
+                    items_after = self.find_sidebar_items_fresh()
+                    count_after = len(items_after)
+                    
+                    return count_after > count_before
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"检查子项目失败: {e}")
+            return False
     
     def start_from_resume_position(self, resume_path: str, resume_name: str) -> bool:
         """从断点续传位置开始遍历"""
@@ -163,13 +235,12 @@ class ResumeHandlerMixin:
             return False
         
         # 计算下一个要处理的位置
-        next_path_parts, next_index = self.calculate_next_position(resume_path, resume_name)
-        next_path_str = '-'.join(map(str, next_path_parts))
+        next_path_str = self.calculate_next_position(resume_path, resume_name)
         
         self.logger.info(f"▶️ 从 {next_path_str} 开始继续遍历...")
         
         # 从计算出的下一个位置开始遍历
-        # 这里需要调用合适的层级开始遍历
+        next_path_parts = [int(x) for x in next_path_str.split('-')]
         level = len(next_path_parts) - 1  # 计算当前层级
         
         # 构建已访问项目集合（避免重复处理）
