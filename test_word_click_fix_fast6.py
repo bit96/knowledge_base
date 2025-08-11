@@ -57,12 +57,22 @@ class FastFeishuDownloader:
         """查找三个点按钮 - 快速版"""
         print("🔍 查找三个点按钮...")
         
+        # 最高优先级：直接通过data-selector精确查找
+        try:
+            more_menu_button = self.driver.find_element(By.CSS_SELECTOR, 'button[data-selector="more-menu"]')
+            if more_menu_button and more_menu_button.is_displayed() and more_menu_button.is_enabled():
+                print("✅ 通过data-selector精确找到三个点按钮")
+                return more_menu_button
+        except Exception as e:
+            print("ℹ️ data-selector方法未找到按钮，尝试备选方案...")
+        
         # 使用缓存的窗口大小
-        right_threshold = self.window_size['width'] * 0.66
+        right_threshold = self.window_size['width'] * 0.5
         top_threshold = self.window_size['height'] * 0.33
         
         # 优先查找常见的按钮类型
         selectors = [
+            'button[data-selector="more-menu"]',  # 最精确的选择器
             "button:not([disabled])",
             "[role='button']:not([disabled])"
         ]
@@ -204,48 +214,36 @@ class FastFeishuDownloader:
         return None
     
     def find_excel_option(self):
-        """查找Excel选项 - 快速版"""
+        """查找Excel选项 - 精确匹配版"""
         print("📊 查找Excel选项...")
         
         # 智能等待Excel选项出现
         try:
             self.wait.until(EC.presence_of_element_located((By.XPATH, 
-                "//*[contains(text(), 'Excel') or contains(text(), 'CSV') or contains(text(), '表格')]")))
+                "//*[contains(text(), 'Excel/CSV 文件')]")))
+            print("✅ Excel选项等待成功")
         except TimeoutException:
             print("❌ Excel选项未出现")
             return None
         
         # 查找格式选项
         format_items = self.driver.find_elements(By.XPATH, 
-            "//*[not(self::script) and not(self::style) and (contains(text(), 'Excel') or contains(text(), 'CSV') or contains(text(), 'xlsx') or contains(text(), '表格') or contains(text(), 'excel'))]")
+            "//*[not(self::script) and not(self::style) and contains(text(), 'Excel/CSV 文件')]")
         
-        # 过滤有效选项
-        visible_format_items = []
+        print(f"🔍 找到 {len(format_items)} 个选项")
+        
+        # 过滤有效选项并精确匹配
         for item in format_items:
             try:
                 item_text = item.text.strip()
-                is_displayed = item.is_displayed()
-                element_tag = item.tag_name
-                
-                # 过滤掉无效元素和脚本标签
-                if (is_displayed and 
-                    item_text and 
-                    element_tag not in ['script', 'style', 'meta', 'link']):
-                    visible_format_items.append((item, item_text))
+                if (item.is_displayed() and 
+                    item_text == 'Excel/CSV 文件'):  # 只精确匹配这个文本
+                    print(f"✅ 找到Excel选项: '{item_text}'")
+                    return item
             except Exception as e:
                 continue
         
-        # 优先选择Excel格式
-        for item, text in visible_format_items:
-            if 'Excel' in text or 'excel' in text.lower() or 'xlsx' in text.lower() or 'CSV' in text or '表格' in text:
-                return item
-        
-        # 备选方案
-        if visible_format_items:
-            item, text = visible_format_items[0]
-            return item
-        
-        print("❌ 未找到任何可用的Excel格式选项")
+        print("❌ 未找到'Excel/CSV 文件'选项")
         return None
     
     def click_word_button_smart(self, word_button):
