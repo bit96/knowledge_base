@@ -197,6 +197,7 @@ class ReportingMixin:
                     "access_failed": self.stats["access_failed"],
                     "success_rate": round(self.stats["successful_access"] / max(self.stats["total_items_found"], 1) * 100, 2)
                 },
+                "download_statistics": self.get_download_stats_summary() if hasattr(self, 'get_download_stats_summary') else {},
                 "output_files": {
                     "csv_log": "directory_traverse_log.csv",
                     "permission_log": "permission_denied_log.txt" if self.permission_denied_items else None,
@@ -244,6 +245,10 @@ class ReportingMixin:
         self.logger.info(f"✅ 成功访问页面数: {len(self.access_log)}")
         self.logger.info(f"❌ 访问失败项目数: {len(self.failed_items)}")
         self.logger.info(f"⚠️ 权限不足项目数: {len(self.permission_denied_items)}")
+        
+        # 下载功能统计
+        if hasattr(self, 'print_download_summary'):
+            self.print_download_summary()
         
         # 层级统计
         if self.access_log:

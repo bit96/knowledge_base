@@ -15,13 +15,15 @@ from .navigation import NavigationMixin
 from .extraction import ExtractionMixin
 from .reporting import ReportingMixin
 from .resume_handler import ResumeHandlerMixin
+from .download_mixin import DownloadMixin
 
 
-class FeishuDirectoryTraverser(InitializationMixin, DiscoveryMixin, NavigationMixin, ExtractionMixin, ReportingMixin, ResumeHandlerMixin):
+class FeishuDirectoryTraverser(InitializationMixin, DiscoveryMixin, NavigationMixin, ExtractionMixin, ReportingMixin, ResumeHandlerMixin, DownloadMixin):
     """飞书知识库目录遍历器主类"""
     
-    def __init__(self, output_dir: str = "/Users/abc/PycharmProjects/knowledge/output"):
+    def __init__(self, output_dir: str = "/Users/abc/PycharmProjects/knowledge/output", enable_download: bool = False):
         self.output_dir = output_dir
+        self.enable_download = enable_download
         self.driver = None
         self.wait = None
         
@@ -50,6 +52,9 @@ class FeishuDirectoryTraverser(InitializationMixin, DiscoveryMixin, NavigationMi
         
         # 确保输出目录存在
         os.makedirs(self.output_dir, exist_ok=True)
+        
+        # 初始化下载统计
+        self.init_download_stats()
         
         # 设置日志
         self.setup_logging()

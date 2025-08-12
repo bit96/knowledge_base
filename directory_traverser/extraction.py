@@ -221,6 +221,10 @@ class ExtractionMixin:
                         
                         self.logger.info(f"{indent}✅ 成功记录父项: {current_title[:50]}...")
                     
+                    # 【可选：下载当前文档】
+                    if hasattr(self, 'enable_download') and self.enable_download:
+                        self.attempt_download_current_document(indent, item_name)
+                    
                     # 【第二步：检查并处理子目录】
                     time.sleep(1)
                     items_after_click = self.find_sidebar_items_fresh()

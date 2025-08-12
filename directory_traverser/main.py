@@ -65,8 +65,8 @@ def main():
     # 记录总开始时间
     total_start_time = time.time()
     
-    # 创建遍历器实例
-    traverser = FeishuDirectoryTraverser()
+    # 创建遍历器实例（启用下载功能）
+    traverser = FeishuDirectoryTraverser(enable_download=True)
     
     try:
         # 设置Chrome连接

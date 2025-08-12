@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-带重试机制的快速文档下载器
-基于test_word_click_fix_fast2.py，添加智能重试机制
+带重试机制的快速文档下载器 v6
+基于test_word_click_fix_fast2.py，添加智能重试机制和Word/Excel分支支持
 
 主要特性:
 - 智能等待策略
@@ -10,6 +10,35 @@
 - 面向对象设计
 - 纯快速模式，无调试开销
 - 智能重试机制：任意步骤失败后等待10秒重试，最多重试3次
+- 支持Word文档和Excel文档下载的智能分支
+- 精确识别三个点按钮 (data-selector="more-menu")
+- 精确匹配"Excel/CSV 文件"选项
+
+使用方法:
+
+1. 直接运行脚本:
+   python3 test_word_click_fix_fast6.py
+
+2. 作为模块调用 (推荐):
+   from test_word_click_fix_fast6 import fast_download_current_document_v6
+   
+   success = fast_download_current_document_v6()
+   if success:
+       print("下载成功!")
+   else:
+       print("下载失败")
+
+功能特性:
+- 支持Word文档和Excel文档下载的智能分支
+- 精确识别三个点按钮 (data-selector="more-menu")
+- 精确匹配"Excel/CSV 文件"选项
+- 智能重试机制：失败后等待10秒重试，最多重试3次
+- 详细的错误报告和诊断信息
+
+前提条件:
+- Chrome调试模式运行在9222端口
+- 已导航到需要下载的飞书文档页面
+- 确保有文档下载权限
 """
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -586,9 +615,27 @@ class FastFeishuDownloader:
             print("💡 这通常表示Chrome连接或WebDriver问题")
             return False
 
+def fast_download_current_document_v6():
+    """
+    一键下载当前文档的便捷函数 - 支持Word和Excel分支版本
+    
+    包含v6的所有功能：
+    - 智能三个点按钮识别（data-selector精确匹配）
+    - Word/Excel文档类型自动分支
+    - 精确匹配"Excel/CSV 文件"选项
+    - 智能重试机制（最多3次，每次等待10秒）
+    - 完整的错误报告和诊断信息
+    
+    返回:
+        bool: 下载是否成功 (True/False)
+    """
+    downloader = FastFeishuDownloader()
+    return downloader.download_document()
+
+
 def main():
-    print("🚀 带重试机制的快速文档下载器")
-    print("智能重试：失败后自动等待10秒重试，最多重试3次")
+    print("🚀 带重试机制的快速文档下载器 v6")
+    print("支持Word和Excel文档智能分支下载")
     print("=" * 60)
     
     # 检查基本环境
@@ -603,9 +650,8 @@ def main():
     # 记录开始时间
     start_time = time.time()
     
-    # 执行下载
-    downloader = FastFeishuDownloader()
-    success = downloader.download_document()
+    # 调用封装函数
+    success = fast_download_current_document_v6()
     
     # 计算执行时间
     end_time = time.time()
